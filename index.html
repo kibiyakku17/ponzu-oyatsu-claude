@@ -49,6 +49,23 @@ body{
 }
 .card h2{ font-size:14px; margin:0 0 10px; color:var(--muted); font-weight:700; letter-spacing:.03em; }
 
+/* ── facility ── */
+.facility-visual{ text-align:center; padding:10px 0 6px; }
+.facility-emoji{ font-size:56px; line-height:1; }
+.facility-name{ font-weight:900; font-size:17px; margin:8px 0 2px; }
+.facility-message{ font-size:12px; color:var(--muted); margin:0 0 12px; min-height:1.4em; }
+.facility-progress-wrap{ margin:0 0 12px; }
+.facility-progress-label{ display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-bottom:4px; }
+.facility-progress{ height:10px; background:var(--soft); border-radius:6px; overflow:hidden; border:1px solid var(--line); }
+.facility-progress i{ display:block; height:100%; background:var(--amber); transition:width .25s; }
+.upgrade-btn{
+  width:100%; padding:13px; border:none; border-radius:12px;
+  background:var(--amber); color:#5a4200; font-weight:900; font-size:14px;
+  font-family:inherit; cursor:pointer;
+}
+.upgrade-btn:disabled{ background:var(--soft); color:var(--muted); }
+.upgrade-btn.maxed{ background:var(--sage-s); color:var(--sage); }
+
 /* ── skills ── */
 .skill-list{ display:flex; flex-direction:column; gap:10px; }
 .skill-item{
@@ -87,6 +104,23 @@ body{
   </div>
 
   <div class="card">
+    <h2>ぽんずの庭</h2>
+    <div class="facility-visual">
+      <div class="facility-emoji" id="facilityEmoji">🌱</div>
+      <div class="facility-name" id="facilityName">はじまりの原っぱ</div>
+      <p class="facility-message" id="facilityMessage"></p>
+    </div>
+    <div class="facility-progress-wrap" id="facilityProgressWrap">
+      <div class="facility-progress-label">
+        <span>次の段階まで</span>
+        <span id="facilityProgressLabel">0 / 0 pt</span>
+      </div>
+      <div class="facility-progress"><i id="facilityProgressBar" style="width:0%"></i></div>
+    </div>
+    <button class="upgrade-btn" id="upgradeBtn">強化する</button>
+  </div>
+
+  <div class="card">
     <h2>できることリスト</h2>
     <div class="skill-list" id="skillList"></div>
   </div>
@@ -99,6 +133,14 @@ body{
 // ═══════════════════════════════════════════════
 const CONFIG = {
   POINTS_PER_ACHIEVEMENT: 10,  // 「今日できた」1回あたりに加算する喜びポイント
+  // 施設強化の段階。costはその段階へ上がるのに必要な喜びポイント（0段階目=初期状態はcost不要）
+  UPGRADE_LEVELS: [
+    { name: 'はじまりの原っぱ', emoji: '🌱', message: 'ここからぽんずの庭づくりが始まるよ', cost: 0 },
+    { name: '小さなお家',       emoji: '🏠', message: 'ぽんずのおうちができた！', cost: 50 },
+    { name: 'お花畑',           emoji: '🌸', message: 'お花が咲いて庭が華やかになった！', cost: 100 },
+    { name: 'ベンチと木陰',     emoji: '🌳', message: 'のんびりできるベンチが登場！', cost: 150 },
+    { name: 'お祝い広場',       emoji: '🎉', message: '盛大にお祝いできる特別な庭になった！', cost: 200 },
+  ],
 };
 
 // ═══════════════════════════════════════════════
@@ -119,7 +161,8 @@ const SKILLS = [
 // ═══════════════════════════════════════════════
 const SAVE_KEY = 'ponzu_oyatsu_v1';
 let state = {
-  points: 0,      // 現在の喜びポイント
+  points: 0,      // 現在の喜びポイント（施設強化で消費される）
+  level: 0,       // 施設強化の現在段階（UPGRADE_LEVELSのindex）
   skills: {},     // id -> { count, lastAt }
 };
 function loadState() {
@@ -128,11 +171,27 @@ function loadState() {
     if (!raw) return;
     const d = JSON.parse(raw);
     state.points = d.points || 0;
+    state.level = d.level || 0;
     state.skills = d.skills || {};
   } catch (e) { /* 壊れたセーブは無視して初期状態から始める */ }
 }
 function saveState() {
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) { /* 容量オーバー等は無視 */ }
+}
+
+// ═══════════════════════════════════════════════
+// 施設強化
+// ═══════════════════════════════════════════════
+function currentLevelDef() { return CONFIG.UPGRADE_LEVELS[state.level]; }
+function nextLevelDef() { return CONFIG.UPGRADE_LEVELS[state.level + 1] || null; }
+function upgradeFacility() {
+  const next = nextLevelDef();
+  if (!next || state.points < next.cost) return;
+  state.points -= next.cost;
+  state.level++;
+  saveState();
+  renderAll();
+  toast(`🎉 ${next.name}に強化した！`);
 }
 
 // ═══════════════════════════════════════════════
@@ -176,6 +235,31 @@ function toast(msg) {
 function renderHeader() {
   document.getElementById('pointsVal').textContent = state.points;
 }
+function renderFacility() {
+  const cur = currentLevelDef();
+  const next = nextLevelDef();
+  document.getElementById('facilityEmoji').textContent = cur.emoji;
+  document.getElementById('facilityName').textContent = cur.name;
+  document.getElementById('facilityMessage').textContent = cur.message;
+
+  const progressWrap = document.getElementById('facilityProgressWrap');
+  const btn = document.getElementById('upgradeBtn');
+  if (next) {
+    progressWrap.style.display = 'block';
+    const pct = Math.min(100, Math.round(state.points / next.cost * 100));
+    document.getElementById('facilityProgressBar').style.width = pct + '%';
+    document.getElementById('facilityProgressLabel').textContent = `${Math.min(state.points, next.cost)} / ${next.cost} pt`;
+    const ok = state.points >= next.cost;
+    btn.textContent = ok ? `⬆️ ${next.name}に強化する（${next.cost}pt）` : `⬆️ ${next.name}まであと${next.cost - state.points}pt`;
+    btn.disabled = !ok;
+    btn.classList.remove('maxed');
+  } else {
+    progressWrap.style.display = 'none';
+    btn.textContent = '🎉 さいこう段階まで強化ずみ！';
+    btn.disabled = true;
+    btn.classList.add('maxed');
+  }
+}
 function renderSkills() {
   const el = document.getElementById('skillList');
   el.innerHTML = SKILLS.map(s => {
@@ -198,8 +282,11 @@ function renderSkills() {
 }
 function renderAll() {
   renderHeader();
+  renderFacility();
   renderSkills();
 }
+
+document.getElementById('upgradeBtn').onclick = upgradeFacility;
 
 // ═══════════════════════════════════════════════
 // 起動
