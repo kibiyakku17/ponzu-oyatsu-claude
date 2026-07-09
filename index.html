@@ -42,6 +42,15 @@ body{
   display:flex; align-items:center; gap:5px; white-space:nowrap;
 }
 
+/* ── support button ── */
+.support-wrap{ text-align:center; margin:0 0 16px; }
+.support-btn{
+  background:none; border:1px solid var(--line); color:var(--muted);
+  border-radius:999px; padding:6px 16px; font-size:11px; font-family:inherit;
+  cursor:pointer;
+}
+.support-btn:active{ background:var(--soft); }
+
 /* ── card base ── */
 .card{
   background:var(--panel); border-radius:16px; padding:16px;
@@ -103,6 +112,10 @@ body{
     <div class="points-pill">💛 <span id="pointsVal">0</span>pt</div>
   </div>
 
+  <div class="support-wrap">
+    <button class="support-btn" id="supportBtn">🐾 ぽんずを応援する</button>
+  </div>
+
   <div class="card">
     <h2>ぽんずの庭</h2>
     <div class="facility-visual">
@@ -142,6 +155,9 @@ const CONFIG = {
     { name: 'お祝い広場',       emoji: '🎉', message: '盛大にお祝いできる特別な庭になった！', cost: 200 },
   ],
 };
+
+// 課金導線プレースホルダー：リンク先が決まったらこの1箇所だけ差し替える
+const SUPPORT_LINK_URL = '';
 
 // ═══════════════════════════════════════════════
 // できることリスト（固定7種・段階解放なし）
@@ -287,6 +303,14 @@ function renderAll() {
 }
 
 document.getElementById('upgradeBtn').onclick = upgradeFacility;
+
+// ═══════════════════════════════════════════════
+// 応援ボタン（課金導線プレースホルダー）
+// ═══════════════════════════════════════════════
+document.getElementById('supportBtn').onclick = () => {
+  if (SUPPORT_LINK_URL) window.open(SUPPORT_LINK_URL, '_blank');
+  else toast('🐾 応援リンクは準備中だよ、もう少し待っててね');
+};
 
 // ═══════════════════════════════════════════════
 // 起動
